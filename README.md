@@ -1,0 +1,81 @@
+# FusionAI - Fusion of AI Models
+
+A collaborative AI system where **GPT-4o**, **Claude Sonnet 4-6**, and **Gemini 2.5 Pro** work together to provide the best possible answers.
+
+## Features
+
+- 🤖 **Real AI Collaboration** - Three premium AI models discuss and refine answers
+- 💬 **Sequential Discussion** - Each AI builds on previous responses
+- 🎨 **Image Generation** - DALL-E 3 integration for creating images
+- 💾 **Conversation History** - Remember all your chats
+- ⚡ **Best Quality** - Synthesized answers from multiple perspectives
+
+## How It Works
+
+1. **GPT-4o** provides initial comprehensive analysis
+2. **Claude Sonnet 4-6** reviews, finds gaps, and adds improvements
+3. **Gemini 2.5 Pro** synthesizes both into the best final answer
+4. **You get** one polished response from true AI collaboration
+
+## Setup
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Get Bytez API Key
+
+1. Go to https://bytez.com
+2. Sign up and get your API key
+3. Copy `.env.local` and add your key:
+
+```env
+BYTEZ_API_KEY=your_actual_api_key_here
+```
+
+### 3. Run Development Server
+
+```bash
+npm run dev
+```
+
+Open http://localhost:3000
+
+## How It Works
+
+1. **User** submits a query
+2. **Agent 1 (GPT-4o)** provides initial analysis
+3. **Agent 2 (Claude Sonnet 3.5)** reviews and adds perspective
+4. **Agent 3 (Gemini Pro)** synthesizes the best final answer
+
+## Architecture
+
+```
+User Query
+    ↓
+Agent 1: GPT-4o (Analysis)
+    ↓
+Agent 2: Claude 3.5 (Critical Review)
+    ↓
+Agent 3: Gemini Pro (Synthesis)
+    ↓
+Final Answer
+```
+
+## Tech Stack
+
+- **Next.js 14** (App Router)
+- **TypeScript**
+- **Bytez SDK** (AI model access)
+- **React** (UI)
+
+## Cost
+
+- **Free** with Bytez (check their limits)
+- Fallback to other providers if needed
+
+## License
+
+MIT
