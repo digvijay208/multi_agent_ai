@@ -1,6 +1,14 @@
-import Bytez from 'bytez.js';
+import { OpenAI } from 'openai';
 
-const sdk = new Bytez(process.env.BYTEZ_API_KEY!);
+// Instantiate an OpenAI client but point it to NVIDIA NIM's API
+function getNvidiaClient() {
+  const apiKey = process.env.GPT_OSS_API_KEY;
+  if (!apiKey) throw new Error("GPT_OSS_API_KEY is missing in .env.local");
+  return new OpenAI({
+    apiKey: apiKey,
+    baseURL: "https://integrate.api.nvidia.com/v1"
+  });
+}
 
 export interface AgentResponse {
   agent: string;
@@ -24,100 +32,101 @@ export async function runMultiAgentDiscussion(userQuery: string): Promise<AgentR
     return await generateImage(userQuery);
   }
 
-  // REAL DISCUSSION: Sequential collaboration
+  // REAL DISCUSSION: Sequential collaboration using NVIDIA Text Models
+  const nvidiaClient = getNvidiaClient();
   
-  // Step 1: GPT-4o provides initial analysis
-  console.log('Step 1: GPT-4o analyzing...');
-  const gpt4Result = await sdk.model('openai/gpt-4o').run([
-    { role: 'system', content: 'You are Agent 1 (GPT-4o). Provide a comprehensive analysis and solution to the user query. Be thorough but concise.' },
-    { role: 'user', content: userQuery }
-  ]);
+  // Step 1: Agent 1 (gpt-oss-120b) provides initial analysis
+  console.log('Step 1: gpt-oss-120b analyzing...');
+  const agent1Result = await nvidiaClient.chat.completions.create({
+    model: 'openai/gpt-oss-120b',
+    messages: [
+      { role: 'system', content: 'You are Agent 1 (Large Language Model). Provide a comprehensive analysis and solution to the user query. Be thorough but concise.' },
+      { role: 'user', content: userQuery }
+    ]
+  });
 
-  if (gpt4Result.error) throw new Error('GPT-4o error: ' + gpt4Result.error);
-  const gpt4Response = typeof gpt4Result.output === 'string' 
-    ? gpt4Result.output 
-    : (gpt4Result.output?.content || JSON.stringify(gpt4Result.output));
+  const agent1Response = agent1Result.choices[0]?.message?.content || '';
+  if (!agent1Response) throw new Error('gpt-oss-120b returned an empty response');
 
-  // Step 2: Claude READS GPT's response and adds critical insights
-  console.log('Step 2: Claude reviewing GPT\'s response...');
-  const claudeResult = await sdk.model('anthropic/claude-sonnet-4-6').run([
-    { role: 'system', content: 'You are Agent 2 (Claude Sonnet 4-6). Agent 1 (GPT-4o) has provided an initial response. Your job is to: 1) Identify what GPT did well, 2) Find gaps or missing information, 3) Add alternative perspectives or improvements, 4) Provide a refined answer that builds on GPT\'s response.' },
-    { role: 'user', content: `User Query: "${userQuery}"\n\n=== Agent 1 (GPT-4o) Response ===\n${gpt4Response}\n\n=== Your Task ===\nReview GPT-4o's response and provide your critical analysis and improvements.` }
-  ]);
+  // Step 2: Agent 2 (gemma) READS Agent 1's response and builds on it for the BEST FINAL ANSWER
+  console.log("Step 2: gemma-3n-e4b-it synthesizing final answer...");
+  
+  // Create a separate client specifically for Gemma pointing to Google's NVIDIA endpoint
+  const gemmaClient = new OpenAI({
+    apiKey: process.env.GEMMA_API_KEY,
+    baseURL: "https://integrate.api.nvidia.com/v1"
+  });
 
-  if (claudeResult.error) throw new Error('Claude error: ' + claudeResult.error);
-  const claudeResponse = typeof claudeResult.output === 'string' 
-    ? claudeResult.output 
-    : (claudeResult.output?.content || JSON.stringify(claudeResult.output));
+  const agent2Result = await gemmaClient.chat.completions.create({
+    model: 'google/gemma-3-4b-it',
+    messages: [
+      { role: 'system', content: 'You are Agent 2 (Gemma), the final synthesizer. Agent 1 has provided an initial response. Your job is to improve it, refine it, and provide ONE clear, comprehensive, and actionable final answer directly to the user.' },
+      { role: 'user', content: `User Query: "${userQuery}"\n\n=== Agent 1 Response ===\n${agent1Response}\n\n=== Your Task ===\nSynthesize the BEST FINAL ANSWER combining any missing insights. Provide a complete, polished response.` }
+    ]
+  });
 
-  // Step 3: Gemini READS both and synthesizes the BEST FINAL ANSWER
-  console.log('Step 3: Gemini synthesizing final answer...');
-  const geminiResult = await sdk.model('google/gemini-2.5-pro').run([
-    { role: 'system', content: 'You are Agent 3 (Gemini 2.5 Pro), the final synthesizer. You have access to responses from GPT-4o and Claude. Your job is to combine the best insights from both agents and provide ONE clear, comprehensive, and actionable final answer. Do not mention the other agents - just provide the best possible answer to the user.' },
-    { role: 'user', content: `User Query: "${userQuery}"\n\n=== Agent 1 (GPT-4o) Response ===\n${gpt4Response}\n\n=== Agent 2 (Claude) Review & Improvements ===\n${claudeResponse}\n\n=== Your Task ===\nSynthesize the BEST FINAL ANSWER by combining insights from both agents. Provide a complete, polished response.` }
-  ]);
-
-  if (geminiResult.error) throw new Error('Gemini error: ' + geminiResult.error);
-  const geminiResponse = typeof geminiResult.output === 'string' 
-    ? geminiResult.output 
-    : (geminiResult.output?.content || JSON.stringify(geminiResult.output));
+  const finalResponse = agent2Result.choices[0]?.message?.content || '';
+  if (!finalResponse) throw new Error('gemma-3n-e4b-it returned an empty response');
 
   // Return only the final synthesized answer
   return [{
     agent: 'FusionAI (Collaborative Solution)',
-    model: 'GPT-4o → Claude → Gemini',
-    response: geminiResponse,
+    model: 'gpt-oss-120b → gemma-3n-e4b-it',
+    response: finalResponse,
     timestamp: Date.now()
   }];
 }
 
 async function generateImage(prompt: string): Promise<AgentResponse[]> {
   try {
-    // Use DALL-E 3 for image generation
-    const imageModel = sdk.model('openai/dall-e-3');
-    const result = await imageModel.run(prompt);
+    const invokeUrl = "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.2-klein-4b";
     
-    if (result.error) {
-      throw new Error('Image generation failed: ' + result.error);
-    }
-    
-    // Extract image URL from output
-    let imageUrl = '';
-    let imageData = '';
-    
-    if (typeof result.output === 'string') {
-      // If output is a URL
-      if (result.output.startsWith('http')) {
-        imageUrl = result.output;
-      } else {
-        imageData = result.output;
-      }
-    } else if (result.output?.url) {
-      imageUrl = result.output.url;
-    } else if (result.output?.data) {
-      imageData = result.output.data;
+    // Standard payload for the NVIDIA API endpoint
+    const payload = {
+      prompt: prompt,
+      seed: Math.floor(Math.random() * 100000), // Random seed to get varied results
+      aspect_ratio: "1:1"
+    };
+
+    const response = await fetch(invokeUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.FLUX_API_KEY}`,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`NVIDIA Flux API error: ${response.status} - ${errorText}`);
     }
 
-    let responseText = '';
-    if (imageUrl) {
-      responseText = `Image generated successfully!\n\n![Generated Image](${imageUrl})`;
-    } else if (imageData) {
-      responseText = `Image generated successfully!\n\n![Generated Image](data:image/png;base64,${imageData})`;
-    } else {
-      responseText = `Image generated but format is unexpected. Output: ${JSON.stringify(result.output)}`;
+    const data = await response.json();
+    
+    // The NVIDIA endpoint returns base64 image data in the response
+    const base64Image = data.image || data.b64_json || data?.artifacts?.[0]?.base64;
+    
+    if (!base64Image) {
+      throw new Error("Could not parse base64 image data from API response.");
     }
+
+    // Render it back in the frontend 
+    // Format required for Next.js explicit imagery mapping with base64
+    const htmlImageString = `Image generated successfully!\n\n![Generated Image](data:image/jpeg;base64,${base64Image})`;
 
     return [{
-      agent: 'Image Generator (DALL-E 3)',
-      model: 'dall-e-3',
-      response: responseText,
+      agent: 'Image Generator (Flux.2)',
+      model: 'NVIDIA: flux.2-klein-4b',
+      response: htmlImageString,
       timestamp: Date.now()
     }];
   } catch (error: any) {
     return [{
       agent: 'Multi-Agent AI',
       model: 'GPT-4o + Claude + Gemini',
-      response: `Image generation is not available or failed. Error: ${error.message}\n\nI can help you with text-based responses instead. What would you like to know?`,
+      response: `Image generation failed. Error: ${error.message}\n\nI can help you with text-based responses instead. What would you like to know?`,
       timestamp: Date.now()
     }];
   }
