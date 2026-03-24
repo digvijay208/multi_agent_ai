@@ -1,8 +1,13 @@
 node_modules
 .next
-.env.local
 .env
 *.log
 .DS_Store
 *.pem
 .vercel
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+dev.db

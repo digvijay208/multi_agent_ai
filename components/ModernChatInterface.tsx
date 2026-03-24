@@ -38,6 +38,9 @@ const Icons = {
   Send: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
   ),
+  Stop: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="6" width="12" height="12" rx="2" ry="2"></rect></svg>
+  ),
   Attach: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
   ),
@@ -54,16 +57,31 @@ export default function ModernChatInterface() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [chatHistory, loading, isImageLoading]);
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+    setIsImageLoading(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,11 +102,15 @@ export default function ModernChatInterface() {
     setLoading(true);
     setIsImageLoading(wantsImage);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.content })
+        body: JSON.stringify({ message: userMessage.content }),
+        signal: controller.signal
       });
 
       const data = await res.json();
@@ -104,11 +126,19 @@ export default function ModernChatInterface() {
         };
         setChatHistory(prev => [...prev, assistantMessage]);
       }
-    } catch (error) {
-      alert('Failed to get response');
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Request aborted by user');
+      } else {
+        console.error('Error fetching chat:', error);
+        alert('Failed to get response');
+      }
     } finally {
-      setLoading(false);
-      setIsImageLoading(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setLoading(false);
+        setIsImageLoading(false);
+      }
     }
   };
 
@@ -182,7 +212,7 @@ export default function ModernChatInterface() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-10 pb-36 relative z-10 scroll-smooth">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-10 pb-32 relative z-10 scroll-smooth">
           <div className="max-w-4xl mx-auto pt-10">
             {chatHistory.length === 0 ? (
               <div className="flex flex-col items-center justify-center mt-32 opacity-0 animate-[fadeIn_1s_ease-out_forwards]">
@@ -304,12 +334,12 @@ export default function ModernChatInterface() {
                 )}
               </div>
             )}
-            <div ref={messagesEndRef} className="h-40" />
+            <div className="h-16" />
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 w-full pt-8 pb-3 bg-gradient-to-t from-[#0e0e0f] via-[#0e0e0f] to-transparent z-20 pointer-events-none">
-          <div className="max-w-3xl mx-auto pointer-events-auto px-4">
+        <div className="absolute inset-x-0 bottom-0 w-full pt-2 pb-0 bg-gradient-to-t from-[#f7f9fb] via-[#f7f9fb] dark:from-[#0e0e0f] dark:via-[#0e0e0f] to-transparent z-20 pointer-events-none">
+          <div className="max-w-4xl mx-auto pointer-events-auto px-4">
             <form onSubmit={handleSubmit} className="relative group">
               <div className="bg-[#2f2f2f]/80 border border-white/5 rounded-full p-2 shadow-2xl backdrop-blur-3xl transition-all duration-500 hover:bg-[#2f2f2f] focus-within:bg-[#2f2f2f]">
                 <div className="flex items-center gap-2">
@@ -335,18 +365,29 @@ export default function ModernChatInterface() {
                     <button type="button" className="p-3 text-[#adaaab] hover:text-white transition-colors rounded-full hover:bg-white/5 mr-1">
                       <Icons.Mic />
                     </button>
-                    <button
-                      type="submit"
-                      disabled={loading || !message.trim()}
-                      className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center transition-transform duration-300 hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 shadow-md"
-                    >
-                      <Icons.Send />
-                    </button>
+                    {loading ? (
+                      <button
+                        type="button"
+                        onClick={handleStop}
+                        className="w-10 h-10 bg-[#262627] text-white rounded-full flex items-center justify-center transition-transform duration-300 hover:scale-105 shadow-md border border-white/10"
+                        title="Stop generating"
+                      >
+                        <Icons.Stop />
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={!message.trim()}
+                        className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center transition-transform duration-300 hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 shadow-md"
+                      >
+                        <Icons.Send />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             </form>
-            <div className="mt-2 text-center text-[10px] text-[#adaaab] font-medium tracking-wide">
+            <div className="mt-1 mb-1 text-center text-[10px] text-[#adaaab] font-medium tracking-wide">
               Obsidian Engine can make mistakes. Check important information.
             </div>
           </div>
