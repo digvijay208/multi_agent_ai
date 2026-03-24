@@ -237,7 +237,7 @@ npm run prisma:migrate
 
 ## Contributing
 
-Contributions welcome! Please check `todo.md` for planned improvements.
+Contributions welcome! Feel free to open an issue or submit a pull request.
 
 ## License
 
