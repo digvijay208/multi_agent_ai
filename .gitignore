@@ -11,3 +11,6 @@ node_modules
 *.sqlite
 *.sqlite3
 dev.db
+
+# Personal tracking files
+todo.md
