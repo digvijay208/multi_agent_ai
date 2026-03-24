@@ -1,12 +1,12 @@
 # FusionAI - Fusion of AI Models
 
-A collaborative AI system where **GPT-4o**, **Claude Sonnet 4-6**, and **Gemini 2.5 Pro** work together to provide the best possible answers.
+A collaborative AI system where **GPT-oss**, **Gemma**, and **Flux** work together to provide the best possible answers.
 
 ## Features
 
 - 🤖 **Real AI Collaboration** - Three premium AI models discuss and refine answers
 - 💬 **Sequential Discussion** - Each AI builds on previous responses
-- 🎨 **Image Generation** - DALL-E 3 integration for creating images
+- 🎨 **Image Generation** - Fluxintegration for creating images
 - 💾 **Conversation History** - Remember all your chats
 - ⚡ **Best Quality** - Synthesized answers from multiple perspectives
 
