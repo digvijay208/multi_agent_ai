@@ -12,9 +12,8 @@ A collaborative AI system where **GPT-4o**, **Claude Sonnet 4-6**, and **Gemini 
 
 ## How It Works
 
-1. **GPT-4o** provides initial comprehensive analysis
-2. **Claude Sonnet 4-6** reviews, finds gaps, and adds improvements
-3. **Gemini 2.5 Pro** synthesizes both into the best final answer
+1. **GPT-oss** provides initial comprehensive analysis
+2. **Gemma** reviews, finds gaps, and adds improvements and synthesizes both into the best final answer
 4. **You get** one polished response from true AI collaboration
 
 ## Setup
@@ -46,20 +45,17 @@ Open http://localhost:3000
 ## How It Works
 
 1. **User** submits a query
-2. **Agent 1 (GPT-4o)** provides initial analysis
-3. **Agent 2 (Claude Sonnet 3.5)** reviews and adds perspective
-4. **Agent 3 (Gemini Pro)** synthesizes the best final answer
+2. **Agent 1 (GPT-oss)** provides initial analysis
+3. **Agent 2 (Gemma)** reviews and adds perspective and synthesizes the best final answer
 
 ## Architecture
 
 ```
 User Query
     ↓
-Agent 1: GPT-4o (Analysis)
+Agent 1: GPT-oss (Analysis)
     ↓
-Agent 2: Claude 3.5 (Critical Review)
-    ↓
-Agent 3: Gemini Pro (Synthesis)
+Agent 2: Gemma (Critical Review and Synthesis)
     ↓
 Final Answer
 ```
