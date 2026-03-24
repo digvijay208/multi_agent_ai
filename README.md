@@ -154,7 +154,6 @@ Non-streaming endpoint (still works)
 ## 📚 Documentation
 
 - **[SETUP_GUIDE.md](./SETUP_GUIDE.md)** - Detailed setup and feature guide
-- **[todo.md](./todo.md)** - Roadmap and future improvements
 
 ## 🆕 What's New in v2.0
 
